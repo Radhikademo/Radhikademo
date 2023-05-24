@@ -1,10 +1,15 @@
 from django.shortcuts import render
 from rest_framework import generics, status
-from .serializers import ( RegisterSerializer,UploadSerializer,UserDetailsSerializer)
+from .serializers import (RegisterSerializer,
+                          UploadSerializer,
+                          UserDetailsSerializer,
+                          UserLoginSerializer)
 from rest_framework.response import Response
 from .models import User, Upload
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
+from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth import authenticate
 
 
 class RegisterView(generics.GenericAPIView):
@@ -22,7 +27,29 @@ class RegisterView(generics.GenericAPIView):
         except:
             return Response(self.serializer_class.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class LoginView(generics.GenericAPIView):
+    """
+    user login api
+    """
+    serializer_class = UserLoginSerializer
+    def post(self, request, *args, **kwargs):
+        breakpoint()
+        data = request.data
+        username = data.get("username", "")
+        password = data.get("password", "")
+        user = authenticate(request, username=username, password=password)
+        if user:
+            serializer_class = UserLoginSerializer(data=request.data)
+            if serializer_class.is_valid(raise_exception=True):
+                if not user.is_active:
+                    return Response(status=status.HTTP_401_UNAUTHORIZED)
+                user_data = {"user_id": user.id, "email":user.username, "tokens":user.tokens}
+                message = "login_success"
+                return Response({'message':message, 'data':user_data}, status=status.HTTP_200_OK)
+        return Response({'status':'login_invalid_credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
 class UserDetailView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = UserDetailsSerializer
     def get(self, request, pk, format=None):
         try:
@@ -39,6 +66,7 @@ class UserDetailView(generics.GenericAPIView):
             return Response(self.serializer_class.errors, status=status.HTTP_404_NOT_FOUND)
 
 class UserDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = UserDetailsSerializer
     def delete(self, request):
         try:
@@ -56,6 +84,7 @@ class UploadAPIView(generics.GenericAPIView):
     """
     user uploads
     """
+    permission_classes = [IsAuthenticated]
     serializer_class = UploadSerializer
     def post(self, request, *args, **kwargs):
         try:
@@ -67,6 +96,7 @@ class UploadAPIView(generics.GenericAPIView):
             return Response(self.serializer_class.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class PostDetailView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = UserDetailsSerializer
     def get(self, request, pk, format=None):
         try:
@@ -83,6 +113,7 @@ class PostDetailView(generics.GenericAPIView):
             return Response(self.serializer_class.errors, status=status.HTTP_404_NOT_FOUND)
 
 class PostDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = UserDetailsSerializer
     def delete(self, request):
         try:
